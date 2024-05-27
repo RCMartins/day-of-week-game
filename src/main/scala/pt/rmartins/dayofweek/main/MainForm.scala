@@ -33,7 +33,7 @@ object MainForm {
       .sample(selectedDayOfWeek, currentDate)
       .foreach {
         case (Some(selectedDayOfWeek), Some(currentDate)) =>
-          val result = (currentDate.getDayOfWeek.getValue + 1 % 7) == selectedDayOfWeek
+          val result = (currentDate.getDayOfWeek.getValue % 7) == selectedDayOfWeek
           Var.update(
             roundResult -> ((_: Option[Boolean]) => Some(result)),
             pointsVar -> ((points: Int) => if (result) points + 1 else points),
