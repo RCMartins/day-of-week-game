@@ -3,8 +3,9 @@ package pt.rmartins.dayofweek.main
 import com.raquo.airstream.ownership.OneTimeOwner
 import com.raquo.laminar.api.L.{u => _, _}
 import com.raquo.laminar.nodes.ReactiveHtmlElement
-import org.scalajs.dom
-import org.scalajs.dom.{window, HTMLDivElement}
+import org.scalajs.dom.HTMLDivElement
+import pt.rmartins.dayofweek.utils.LocalStorage
+import pt.rmartins.dayofweek.utils.LocalStorage.retrieveValue
 
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -30,18 +31,27 @@ object MainForm {
     val owner = new OneTimeOwner(() => ())
 
     resultCheckBus.events
-      .sample(selectedDayOfWeek, currentDate)
+      .sample(selectedDayOfWeek, currentDate, pointsVar)
       .foreach {
-        case (Some(selectedDayOfWeek), Some(currentDate)) =>
+        case (Some(selectedDayOfWeek), Some(currentDate), currentPoints) =>
           val result = (currentDate.getDayOfWeek.getValue % 7) == selectedDayOfWeek
-          Var.update(
-            roundResult -> ((_: Option[Boolean]) => Some(result)),
-            pointsVar -> ((points: Int) => if (result) points + 1 else points),
+          val newPoints = if (result) currentPoints + 1 else currentPoints
+          Var.set(
+            roundResult -> Some(result),
+            pointsVar -> newPoints,
           )
+          if (result)
+            LocalStorage.storeValue(LocalStorage.PointsKey, newPoints.toString)
         case _ =>
       }(owner)
 
-    setNewDayOfWeek();
+    setNewDayOfWeek()
+
+    println((LocalStorage.PointsKey, retrieveValue(LocalStorage.PointsKey)))
+
+    Var.set(
+      pointsVar -> retrieveValue(LocalStorage.PointsKey).map(_.toInt).getOrElse(0),
+    )
 
     div(
       className := "m-2",
