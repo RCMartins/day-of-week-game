@@ -1,0 +1,35 @@
+name: Build and Deploy
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Scala and SBT
+        uses: olafurpg/setup-scala@v14
+
+      - name: Build project
+        run: sbt fullOptJS
+
+      - name: Prepare files for GitHub Pages
+        run: |
+          mkdir ./publish-folder
+          sed -i 's|target/scala-2.13/day-of-week-game-fastopt/||g' index.html
+          cp ./index.html ./publish-folder/
+          find ./target/scala-2.13/ -type f \( -name "*.js" -o -name "*.js.map" \) -exec cp {} ./publish-folder/ \;
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./publish-folder
