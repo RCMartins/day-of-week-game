@@ -15,7 +15,7 @@ object MainForm {
 
   private val currentDate: Var[Option[LocalDate]] = Var(None)
   private val selectedDayOfWeek: Var[Option[Int]] = Var(None)
-  private val roundResult: Var[Option[Boolean]] = Var(None)
+  private val roundResult: Var[Option[(Boolean, Int)]] = Var(None)
   private val pointsVar: Var[Int] = Var(0)
 
   private val resultCheckBus: EventBus[Unit] = new EventBus
@@ -34,10 +34,11 @@ object MainForm {
       .sample(selectedDayOfWeek, currentDate, pointsVar)
       .foreach {
         case (Some(selectedDayOfWeek), Some(currentDate), currentPoints) =>
-          val result = (currentDate.getDayOfWeek.getValue % 7) == selectedDayOfWeek
+          val expectedDayOfWeek = currentDate.getDayOfWeek.getValue % 7
+          val result = expectedDayOfWeek == selectedDayOfWeek
           val newPoints = if (result) currentPoints + 1 else currentPoints
           Var.set(
-            roundResult -> Some(result),
+            roundResult -> Some((result, expectedDayOfWeek)),
             pointsVar -> newPoints,
           )
           if (result)
@@ -56,16 +57,21 @@ object MainForm {
     div(
       className := "m-2",
       className := "d-flex justify-content-start align-items-center flex-column",
-      h2(
+      h3(
         "Day of Week"
       ),
-      h2(
+      div(
+        "Points: ",
+        child.text <-- pointsVar,
+      ),
+      h1(
+        className := "my-2",
         child.text <--
           currentDate.signal.map(_.map(dateFormatter.format(_)).getOrElse("")),
       ),
       dayOfWeeks.zipWithIndex.map { case (dayOfWeek, index) =>
         button(
-          className := "btn m-1",
+          className := "btn mb-1",
           className <-- selectedDayOfWeek.signal.map(selected =>
             if (selected.contains(index)) "btn-primary" else "btn-outline-primary"
           ),
@@ -76,7 +82,7 @@ object MainForm {
         )
       },
       button(
-        className := "btn btn-success m-1",
+        className := "btn btn-secondary m-1",
         width.px := 120,
         "Confirm",
         disabled <-- selectedDayOfWeek.signal.combineWith(roundResult).map {
@@ -85,25 +91,47 @@ object MainForm {
         },
         onClick.mapTo(()) --> resultCheckBus.writer,
       ),
-      div(
+      span(
+        className <--
+          roundResult.signal.map {
+            case None             => ""
+            case Some((true, _))  => "text-success"
+            case Some((false, _)) => "text-danger"
+          },
         "Result: ",
-        child.text <-- roundResult.signal.map {
-          case None        => "---"
-          case Some(true)  => "Correct"
-          case Some(false) => "Incorrect"
+        child <-- roundResult.signal.map {
+          case None =>
+            span("---")
+          case Some((true, _)) =>
+            span(b("Correct"), i(className := "text-success fa-solid fa-check ps-1"))
+          case Some((false, _)) =>
+            span(b("Incorrect"))
         },
+        visibility <-- roundResult.signal.map(result =>
+          if (result.isEmpty) visibility.hidden.value else visibility.visible.value
+        ),
+      ),
+      span(
+        child <-- roundResult.signal.map {
+          case None            => span()
+          case Some((true, _)) => span()
+          case Some((false, correctAnswer)) =>
+            span(className("text-success"), "It's ", b(s"${dayOfWeeks(correctAnswer)}"))
+        },
+        visibility <-- roundResult.signal.map(result =>
+          if (result.isEmpty) visibility.hidden.value else visibility.visible.value
+        ),
       ),
       button(
         className := "btn btn-primary m-1",
         width.px := 120,
-        "Next Date",
-        disabled <-- roundResult.signal.map(_.isEmpty),
+        "Next Date ",
+        i(className := "fa-solid fa-chevron-right ps-1"),
+        visibility <-- roundResult.signal.map(result =>
+          if (result.isEmpty) visibility.hidden.value else visibility.visible.value
+        ),
         onClick --> (_ => setNewDayOfWeek()),
       ),
-      div(
-        "Points: ",
-        child.text <-- pointsVar,
-      )
     )
   }
 
